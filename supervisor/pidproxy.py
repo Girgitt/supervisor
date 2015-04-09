@@ -28,7 +28,27 @@ class PidProxy:
                 pid, sts = os.waitpid(-1, os.WNOHANG)
             except OSError:
                 pid, sts = None, None
-            if pid:
+            if pid is not None:
+                break
+            
+        # FIX: adding monitoring of the spawned process based on the real PID 
+        # read from a pid file passed as an arg to pidproxy script.
+        # The original pidproxy exits and supervisord is not even able to 
+        # sustain the spawnned proces operational (e.g. restart it on failure)
+        try:
+            child_pid = int(open(self.pidfile, 'r').read().strip())     
+        except:
+            sys.stdout.write("could not get child PID from file: %s\n" % self.pidfile)
+            return
+        
+        # monitoring the spawned process and quting when it's no longer present thus  
+        # triggering any recovery action configured for the proxied program
+        while 1:
+            time.sleep(5)
+            try:
+                os.kill(child_pid, 0)
+            except OSError:
+                sys.stdout.write("could not find child PID: %s\n" % child_pid)
                 break
 
     def usage(self):
